@@ -1,0 +1,175 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use BibTeX::Parser;
+use IO::File;
+use File::Temp qw/ tempfile /;
+
+
+sub error {
+  my $message = shift || "Generic error.";
+  print STDERR "$0 $message\n";
+  exit 1;
+}
+
+sub usage {
+  print STDERR "$0 AUXFILE[.aux]\n";
+  exit 1;
+}
+
+sub exec_bibtex{ # argument must have suffix ".aux".
+  my $filename = shift or die;
+  my $cmd = "bibtex $filename";
+  print STDERR "[EXECUTE] $cmd\n";
+  print STDERR `$cmd 2>&1`;
+  print STDERR "\n";
+  (my $bbl = $filename) =~ s/\.aux$/.bbl/i;
+  open(IN, $bbl) or error("$bbl not found.");
+  my @result = <IN>;
+  close(IN);
+  return @result;
+}
+
+our $TARGET = $ARGV[0] || usage();
+$TARGET =~ s/\.aux$//i;
+
+colbibtex();
+exit 0;
+
+sub colbibtex{
+  my ($bibinfo, $citations) = read_auxfile("$TARGET.aux");
+
+  my $collapsed_entries = {};
+  foreach(keys %$citations){
+    if(@{$citations->{$_}} > 1){
+      $collapsed_entries->{$_} = generate_collapsed_entry($bibinfo, @{$citations->{$_}});
+    }
+  }
+
+  prepare_aux_file("${TARGET}_", $bibinfo, keys %$citations);
+  my @main_bbl = exec_bibtex("${TARGET}_.aux");
+
+  open(OUT, ">$TARGET.bbl");
+  my $do_output = 1;
+  foreach(@main_bbl){
+    if(/^\\bibitem{(.*?)}/){
+      if(@{$citations->{$1}} > 1){
+        print OUT $collapsed_entries->{$1};
+        $do_output = 0;
+      }else{
+        $do_output = 1;
+      }
+    }
+    if(/^\\end{thebibliography}/){
+      $do_output = 1;
+    }
+    print OUT $_ if $do_output;
+  }
+  close(OUT);
+}
+
+sub read_auxfile{
+  open(my $aux, "$TARGET.aux") or error "File $TARGET.aux not found.";
+  # returns ($bibinfo, $citations).
+  #   $bibinfo:   a list which contains \bibstyle and \bibdata lines.
+  #   $citations: a hash, whose keys are HEAD refs, and its data is a list of HEAD + TAIL refs.
+  my $bibinfo = [];
+  my $citations = {};
+
+  my $last_head = "";
+  foreach my $line(<$aux>){
+    push(@$bibinfo, $line) if $line =~ /^\\bib(style|data)\{/;
+    if($line =~ /^\\citation{(.*?)}/){
+      my $head = $1;
+      if($head =~ /^\*(.*)$/){
+        my $tail = $1;
+        if($last_head eq ""){ error("Missing head ref for $tail"); }
+        # check duplicate
+        foreach(@{$citations->{$last_head}}){
+          if($_ eq ""){
+            error("Inconsistent col-entry for $last_head.");
+          }elsif($_ eq $tail){
+            error("Duplicated entriy $tail for $last_head.");
+          }
+        }
+        push(@{$citations->{$last_head}}, $tail);
+      }else{
+        push(@{$citations->{$last_head}}, ""); # put a lid to check overwriting existing head.
+        $citations->{$head} = [$head];
+        $last_head = $head;
+      }
+    }
+  }
+  foreach(keys %$citations){
+    pop @{$citations->{$_}} if $citations->{$_}->[-1] eq "";
+    if(@{$citations->{$_}} == 0){
+      delete $citations->{$_};
+    }
+  }
+  close($aux);
+  return ($bibinfo, $citations);
+}
+
+sub prepare_aux_file{
+  my ($filename, $bibinfo, @refs) = @_;
+  open(my $fh, ">$filename.aux") or error "Cannot create a file $filename.aux.";
+  print $fh @$bibinfo;
+  foreach(@refs){
+    print $fh "\\citation{$_}\n";
+  }
+  close($fh);
+}
+
+sub generate_collapsed_entry{
+  my ($bibinfo, @refs) = @_;
+  (my $filename = "${TARGET}_${refs[0]}") =~ s/[^\w]//g;
+  prepare_aux_file($filename, $bibinfo, @refs);
+  my @result = exec_bibtex("$filename.aux");
+  return collapse_bbl_entries(@result);
+}
+
+sub collapse_bbl_entries{
+  my @entries = get_bbl_entries(@_); # chomp performed.
+  for(my $entry = 0; $entry <= $#entries-1; $entry++){
+    for(my $line = $#{$entries[$entry]}; $line >= 0; $line--){
+      if($entries[$entry]->[$line] =~ /^([^%]*)\.(\s*(\%.*)?)$/){
+        $entries[$entry]->[$line] = "$1;$2";
+        last;
+      }
+    }
+  }
+  for(my $entry = 1; $entry <= $#entries; $entry++){
+    for(my $line = 0; $line <= $#{$entries[$entry]}; $line++){
+      if($entries[$entry]->[$line] =~ /^(\\bibitem{.*?})(.*)$/){
+        my ($item, $suffix) = ($1, $2);
+        $entries[$entry]->[$line] =
+          ($suffix =~ /^\s*$/) ? "\%$item" : "\%$item\n$suffix";
+        last;
+      }
+    }
+  }
+  my @lines;
+  foreach(@entries){
+    foreach(@$_){
+      push(@lines, /^\s*$/ ? "%\n" : "$_\n");
+    }
+  }
+  return join("", @lines);
+}
+
+sub get_bbl_entries{
+  my @entries;
+  foreach(@_){
+    chomp;
+    last if /^\\end{thebibliography}/;
+    if(/^\\bibitem\{/){
+      push(@entries, [$_])
+    }else{
+      push(@{$entries[-1]}, $_) if @entries;
+    }
+  }
+  return @entries;
+}
+
+__END__
