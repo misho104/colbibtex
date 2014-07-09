@@ -2,10 +2,12 @@
 
 use strict;
 use warnings;
-use BibTeX::Parser;
-use IO::File;
 use File::Temp qw/ tempfile /;
 
+our $TARGET = $ARGV[0] || usage();
+$TARGET =~ s/\.aux$//i;
+colbibtex();
+exit 0;
 
 sub error {
   my $message = shift || "Generic error.";
@@ -30,12 +32,6 @@ sub exec_bibtex{ # argument must have suffix ".aux".
   close(IN);
   return @result;
 }
-
-our $TARGET = $ARGV[0] || usage();
-$TARGET =~ s/\.aux$//i;
-
-colbibtex();
-exit 0;
 
 sub colbibtex{
   my ($bibinfo, $citations) = read_auxfile("$TARGET.aux");
