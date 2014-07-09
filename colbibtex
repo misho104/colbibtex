@@ -73,35 +73,33 @@ sub read_auxfile{
   my $bibinfo = [];
   my $citations = {};
 
-  my $last_head = "";
+  my $head = "";
   foreach my $line(<$aux>){
     push(@$bibinfo, $line) if $line =~ /^\\bib(style|data)\{/;
     if($line =~ /^\\citation{(.*?)}/){
-      my $head = $1;
-      if($head =~ /^\*(.*)$/){
-        my $tail = $1;
-        if($last_head eq ""){ error("Missing head ref for $tail"); }
+      my $key = $1;
+      if($key =~ /^\*(.*)$/){
+        $key = $1;
+        if($head eq ""){ error("Missing head ref for $key."); }
         # check duplicate
-        foreach(@{$citations->{$last_head}}){
+        foreach(@{$citations->{$head}}){
           if($_ eq ""){
-            error("Inconsistent col-entry for $last_head.");
-          }elsif($_ eq $tail){
-            error("Duplicated entriy $tail for $last_head.");
+            error("Inconsistent col-entry for $head.");
+          }elsif($_ eq $key){
+            error("Duplicated entriy $key for $head.");
           }
         }
-        push(@{$citations->{$last_head}}, $tail);
+        push(@{$citations->{$head}}, $key);
       }else{
-        push(@{$citations->{$last_head}}, ""); # put a lid to check overwriting existing head.
+        # put a lid on the last "head" to check overwriting existing head.
+        push(@{$citations->{$head}}, "") if $head ne "" and $citations->{$head}->[-1] ne "";
+        $head = $key;
         $citations->{$head} = [$head];
-        $last_head = $head;
       }
     }
   }
   foreach(keys %$citations){
     pop @{$citations->{$_}} if $citations->{$_}->[-1] eq "";
-    if(@{$citations->{$_}} == 0){
-      delete $citations->{$_};
-    }
   }
   close($aux);
   return ($bibinfo, $citations);
