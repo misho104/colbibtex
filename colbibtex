@@ -74,27 +74,37 @@ sub read_auxfile{
   my $citations = {};
 
   my $head = "";
+  my $position = 0;
   foreach my $line(<$aux>){
     push(@$bibinfo, $line) if $line =~ /^\\bib(style|data)\{/;
     if($line =~ /^\\citation{(.*?)}/){
       my $key = $1;
       if($key =~ /^\*(.*)$/){
+        $position++;
         $key = $1;
-        if($head eq ""){ error("Missing head ref for $key."); }
-        # check duplicate
-        foreach(@{$citations->{$head}}){
-          if($_ eq ""){
-            error("Inconsistent col-entry for $head.");
-          }elsif($_ eq $key){
-            error("Duplicated entriy $key for $head.");
+        if($head eq ""){ error("Missing head ref for [$key]."); }
+        if($citations->{$head}->[-1] eq ""){
+          # if the head is already finalized
+          if($citations->{$head}->[$position] eq $key){
+            # no problem with same order
+          }else{
+            error("Redefinition of [$head] with different tails [$key].");
           }
+        }else{
+          # in definition session for the head
+          foreach(@{$citations->{$head}}){
+            if($_ eq $key){
+              error("Duplicated entry [$key] for [$head].");
+            }
+          }
+          push(@{$citations->{$head}}, $key);
         }
-        push(@{$citations->{$head}}, $key);
       }else{
         # put a lid on the last "head" to check overwriting existing head.
         push(@{$citations->{$head}}, "") if $head ne "" and $citations->{$head}->[-1] ne "";
         $head = $key;
-        $citations->{$head} = [$head];
+        $position = 0;
+        $citations->{$head} = [$head] unless exists $citations->{$head};
       }
     }
   }
