@@ -39,25 +39,53 @@ sub colbibtex{
   my $collapsed_entries = {};
   foreach(keys %$citations){
     if(@{$citations->{$_}} > 1){
-      $collapsed_entries->{$_} = generate_collapsed_entry($bibinfo, @{$citations->{$_}});
+      $collapsed_entries->{$_} = collapse_bbl_entries(1, generate_bbl($citations->{$_}->[0], $bibinfo, @{$citations->{$_}}));
     }
   }
 
-  prepare_aux_file("${TARGET}_", $bibinfo, keys %$citations);
-  my @main_bbl = exec_bibtex("${TARGET}_.aux");
+  my @main_bbl = generate_bbl("", $bibinfo, keys %$citations);
+
+  my ($key, $collapsed_mode) = ("", 0);
+  my @entries;
+  foreach(@main_bbl){ # find entries to be collapsed
+    if($collapsed_mode and (/^\\bibitem{.*?}/ or /^\\end{thebibliography}/)){
+      unless(@entries){
+        error("No '\% ENTRY' tag found for $key");
+      }
+      $collapsed_entries->{$key} = collapse_bbl_entries(0, generate_bbl($key, $bibinfo, @entries));
+      $collapsed_mode = 0;
+      @entries = ();
+    }
+
+    if(/^\\bibitem{(.*?)}/){
+      $key = $1;
+    }elsif(/^COLLAPSED ENTRY/i){
+      if($key eq ""){ error("Invalid bbl; keyword 'COLLAPSED ENTRY' appears in invalid position."); }
+      $collapsed_mode = 1;
+    }elsif(/^\s*%\s*ENTRY:\s*(.*)$/i){
+      push(@entries, $1);
+      unless($collapsed_mode){ error("Invalid bbl; keyword '\% ENTRY:' appears in invalid position."); }
+    }
+  }
 
   open(OUT, ">$TARGET.bbl");
+
   my $do_output = 1;
   foreach(@main_bbl){
+    my $output_stack = "";
     if(/^\\bibitem{(.*?)}/){
-      if(@{$citations->{$1}} > 1){
-        print OUT $collapsed_entries->{$1};
+      $key = $1;
+      if(@{$citations->{$key}} > 1){ # collapsed entry in mcite style
+        print OUT $collapsed_entries->{$key};
+        print OUT "\n";
         $do_output = 0;
-      }else{
-        $do_output = 1;
+      }elsif(exists $collapsed_entries->{$key}){ # collapsed entry in bib
+        print OUT $_;
+        print OUT $collapsed_entries->{$key};
+        print OUT "\n";
+        $do_output = 0;
       }
-    }
-    if(/^\\end{thebibliography}/){
+    }elsif(/^\\end{thebibliography}/){
       $do_output = 1;
     }
     print OUT $_ if $do_output;
@@ -115,25 +143,13 @@ sub read_auxfile{
   return ($bibinfo, $citations);
 }
 
-sub prepare_aux_file{
-  my ($filename, $bibinfo, @refs) = @_;
-  open(my $fh, ">$filename.aux") or error "Cannot create a file $filename.aux.";
-  print $fh @$bibinfo;
-  foreach(@refs){
-    print $fh "\\citation{$_}\n";
-  }
-  close($fh);
-}
-
 sub generate_collapsed_entry{
   my ($bibinfo, @refs) = @_;
-  (my $filename = "${TARGET}_${refs[0]}") =~ s/[^\w]//g;
-  prepare_aux_file($filename, $bibinfo, @refs);
-  my @result = exec_bibtex("$filename.aux");
-  return collapse_bbl_entries(@result);
+  return collapse_bbl_entries(generate_bbl($refs[0], $bibinfo, @refs));
 }
 
 sub collapse_bbl_entries{
+  my $use_first_label = shift;
   my @entries = get_bbl_entries(@_); # chomp performed.
   for(my $entry = 0; $entry <= $#entries-1; $entry++){
     for(my $line = $#{$entries[$entry]}; $line >= 0; $line--){
@@ -143,7 +159,7 @@ sub collapse_bbl_entries{
       }
     }
   }
-  for(my $entry = 1; $entry <= $#entries; $entry++){
+  for(my $entry = ($use_first_label ? 1 : 0); $entry <= $#entries; $entry++){
     for(my $line = 0; $line <= $#{$entries[$entry]}; $line++){
       if($entries[$entry]->[$line] =~ /^(\\bibitem{.*?})(.*)$/){
         my ($item, $suffix) = ($1, $2);
@@ -174,6 +190,20 @@ sub get_bbl_entries{
     }
   }
   return @entries;
+}
+
+sub generate_bbl {
+  my ($title, $bibinfo, @refs) = @_;
+  (my $filename = "${TARGET}_$title") =~ s/[^\w]//g;
+
+  # prepare aux file
+  open(my $fh, ">$filename.aux") or error "Cannot create a file $filename.aux.";
+  print $fh @$bibinfo;
+  foreach(@refs){
+    print $fh "\\citation{$_}\n";
+  }
+  close($fh);
+  return exec_bibtex("$filename.aux");
 }
 
 __END__
