@@ -1,0 +1,30 @@
+\documentclass{article}
+\usepackage{listings,hyperref,color}
+\lstset{basicstyle=\normalfont\ttfamily\small}
+\newcommand\TODO[1]{{\color{red} \textbf{TODO: #1}}}
+\bibliographystyle{bst/utphys27mod_wotitle}
+
+\begin{document}
+\section*{``colbibtex'' example (mcite mode)}
+\begin{quote}
+The Higgs boson is discovered in 2012 at the LHC~\cite{Aad:2012tfa,*Chatrchyan:2012xdj}.
+\end{quote}
+
+This is an example with \href{https://github.com/misho104/colbibtex}{\emph{colbibtex}} script.
+The source code is the same as \texttt{example\_mcite.tex}.
+The compile is a bit complicated:
+\begin{lstlisting}
+pdflatex example_mcite
+colbibtex example_mcite
+pdflatex example_mcite
+pdflatex example_mcite
+\end{lstlisting}
+or
+\begin{lstlisting}
+latexmk -e "\$bibtex='colbibtex'" example_mcitemode
+\end{lstlisting}
+
+\TODO{Currently this mode is not working well... should be fixed....?}
+
+\bibliography{example}
+\end{document}

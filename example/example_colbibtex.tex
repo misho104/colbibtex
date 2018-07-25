@@ -1,0 +1,39 @@
+\documentclass{article}
+\usepackage{listings,hyperref,color}
+\lstset{basicstyle=\normalfont\ttfamily\small}
+\newcommand\TODO[1]{{\color{red} \textbf{TODO: #1}}}
+\bibliographystyle{bst/utphys27mod_wotitle}
+
+\begin{document}
+\section*{``colbibtex'' example}
+\begin{quote}
+The Higgs boson is discovered in 2012 at the LHC~\cite{HiggsDiscovery}.
+\end{quote}
+
+This is an example with \href{https://github.com/misho104/colbibtex}{\emph{colbibtex}} script.
+We added a \texttt{@collapse} entry in the \texttt{.bib} file.
+Then the \TeX\ source is simpler and you do not have to cut-and-paste the \texttt{\\cite} command from your old works.
+Meanwhile, \texttt{.bst} file should be modified\footnote{%
+  You can just use the file \texttt{utphys27mod(\_wotitle).bst} included in this example.
+}, and the compile is a bit complicated:
+\begin{lstlisting}
+pdflatex example_colbibtex
+colbibtex example_colbibtex
+pdflatex example_colbibtex
+pdflatex example_colbibtex
+\end{lstlisting}
+or
+\begin{lstlisting}
+latexmk -e "\$bibtex='colbibtex'" example_colbibtex
+\end{lstlisting}
+
+\subsection*{An invalid case}
+One may wrongly use the entry already collapsed in its bare form, like
+\begin{quote}
+The Higgs boson is discovered in 2012 at the LHC~\cite{HiggsDiscovery}.
+The paper by ATLAS collaboration~\cite{Aad:2012tfa} was posted on arXiv at 11:59:59~GMT on 31 July, while that by CMS~\cite{Chatrchyan:2012xdj} was at 13:27:18~GMT.
+\end{quote}
+In this case, both ``bared'' entry remain as \texttt{[?]} because it is already used in the collapsed entry.
+\TODO{colbibtex should raise warnings.}
+\bibliography{example}
+\end{document}
