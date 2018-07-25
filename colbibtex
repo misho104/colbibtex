@@ -45,6 +45,11 @@ sub colbibtex{
 
   my @main_bbl = generate_bbl("", $bibinfo, keys %$citations);
 
+  # make latexmk happy...
+  if(-f "${TARGET}_.blg"){
+    `mv ${TARGET}_.blg ${TARGET}.blg`;
+  }
+
   my ($key, $collapsed_mode) = ("", 0);
   my @entries;
   foreach(@main_bbl){ # find entries to be collapsed
