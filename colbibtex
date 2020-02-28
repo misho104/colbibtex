@@ -130,35 +130,37 @@ sub read_auxfile{
   foreach my $line(<$aux>){
     push(@$bibinfo, $line) if $line =~ /^\\bib(style|data)\{/;
     if($line =~ /^\\citation{(.*?)}/){
-      my $key = $1;
-      if($key =~ /^\*(.*)$/){
-        $position++;
-        $key = $1;
-        if($head eq ""){ error("Missing head ref for [$key]."); }
-        if($citations->{$head}->[-1] eq ""){
-          # if the head is already finalized
-          if($citations->{$head}->[$position] eq $key){
-            # no problem with same order
+      my @keys = split(/\s*,\s*/, $1);
+      foreach my $key(@keys){
+        if($key =~ /^\*(.*)$/){
+          $position++;
+          $key = $1;
+          if($head eq ""){ error("Missing head ref for [$key]."); }
+          if($citations->{$head}->[-1] eq ""){
+            # if the head is already finalized
+            if($citations->{$head}->[$position] eq $key){
+              # no problem with same order
+            }else{
+              error("Redefinition of [$head] with different tails [$key].");
+            }
           }else{
-            error("Redefinition of [$head] with different tails [$key].");
+            # in definition session for the head
+            foreach(@{$citations->{$head}}){
+              if($_ eq $key){
+                error("Duplicated entry [$key] for [$head].");
+              }
+            }
+            push(@{$citations->{$head}}, $key);
           }
         }else{
-          # in definition session for the head
-          foreach(@{$citations->{$head}}){
-            if($_ eq $key){
-              error("Duplicated entry [$key] for [$head].");
-            }
+          # put a "lid" on the last "head" to check overwriting existing head.
+          push(@{$citations->{$head}}, "") if $head ne "" and $citations->{$head}->[-1] ne "";
+          $head = $key;
+          $position = 0;
+          if(not exists $citations->{$head}){
+            $citations->{$head} = [$head];
+            push(@$order, $head);
           }
-          push(@{$citations->{$head}}, $key);
-        }
-      }else{
-        # put a "lid" on the last "head" to check overwriting existing head.
-        push(@{$citations->{$head}}, "") if $head ne "" and $citations->{$head}->[-1] ne "";
-        $head = $key;
-        $position = 0;
-        if(not exists $citations->{$head}){
-          $citations->{$head} = [$head];
-          push(@$order, $head);
         }
       }
     }
