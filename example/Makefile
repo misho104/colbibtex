@@ -2,7 +2,7 @@
 
 COLBIBTEX=../colbibtex
 
-all: example_mcite.pdf example_colbibtex.pdf example_mcitemode.pdf
+all: example_mcite.pdf example_colbibtex.pdf example_mcitemode.pdf example_colbibtex_invalid.pdf
 
 clean:
 	@rm -f *.aux *.fdb_latexmk *.fls *.log *~ *.bbl *.blg *.out flycheck_*
@@ -18,6 +18,12 @@ example_colbibtex.pdf: example_colbibtex.tex example.bib
 	${COLBIBTEX} example_colbibtex
 	pdflatex example_colbibtex
 	pdflatex example_colbibtex
+
+example_colbibtex_invalid.pdf: example_colbibtex_invalid.tex example.bib
+	pdflatex example_colbibtex_invalid
+	${COLBIBTEX} example_colbibtex_invalid
+	pdflatex example_colbibtex_invalid
+	pdflatex example_colbibtex_invalid
 
 example_mcitemode.pdf: example_mcitemode.tex example.bib
 	pdflatex example_mcitemode

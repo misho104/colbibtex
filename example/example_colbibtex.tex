@@ -7,7 +7,8 @@
 \begin{document}
 \section*{``colbibtex'' example}
 \begin{quote}
-The Higgs boson is discovered in 2012 at the LHC~\cite{HiggsDiscovery}.
+  The Higgs boson, so-called after Ref.~\cite{Higgs:1964pj}, is discovered in 2012 at the LHC~\cite{HiggsDiscovery}.
+  The particle is proposed in, e.g., Refs.~\cite{Higgs:1964pj,Englert:1964et}.
 \end{quote}
 
 This is an example with \href{https://github.com/misho104/colbibtex}{\emph{colbibtex}} script.
@@ -27,13 +28,5 @@ or
 latexmk -e "\$bibtex='colbibtex'" example_colbibtex
 \end{lstlisting}
 
-\subsection*{An invalid case}
-One may wrongly use the entry already collapsed in its bare form, like
-\begin{quote}
-The Higgs boson is discovered in 2012 at the LHC~\cite{HiggsDiscovery}.
-The paper by ATLAS collaboration~\cite{Aad:2012tfa} was posted on arXiv at 11:59:59~GMT on 31 July, while that by CMS~\cite{Chatrchyan:2012xdj} was at 13:27:18~GMT.
-\end{quote}
-In this case, both ``bared'' entry remain as \texttt{[?]} because it is already used in the collapsed entry.
-\TODO{colbibtex should raise warnings.}
 \bibliography{example}
 \end{document}
