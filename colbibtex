@@ -45,7 +45,7 @@ sub exec_bibtex{ # argument must have suffix ".aux".
 }
 
 sub colbibtex{
-  my ($bibinfo, $citations) = read_auxfile("$TARGET.aux");
+  my ($bibinfo, $citations, $order) = read_auxfile("$TARGET.aux");
 
   my $collapsed_entries = {};
   foreach(keys %$citations){
@@ -54,7 +54,7 @@ sub colbibtex{
     }
   }
 
-  my @main_bbl = generate_bbl("", $bibinfo, keys %$citations);
+  my @main_bbl = generate_bbl("", $bibinfo, @$order);
 
   # make latexmk happy...
   if(-f "${TARGET}_.blg"){
@@ -119,8 +119,11 @@ sub read_auxfile{
   # returns ($bibinfo, $citations).
   #   $bibinfo:   a list which contains \bibstyle and \bibdata lines.
   #   $citations: a hash, whose keys are HEAD refs, and its data is a list of HEAD + TAIL refs.
+  #   $order:     order of keys of $citations.
+  #
   my $bibinfo = [];
   my $citations = {};
+  my $order = [];
 
   my $head = "";
   my $position = 0;
@@ -149,19 +152,23 @@ sub read_auxfile{
           push(@{$citations->{$head}}, $key);
         }
       }else{
-        # put a lid on the last "head" to check overwriting existing head.
+        # put a "lid" on the last "head" to check overwriting existing head.
         push(@{$citations->{$head}}, "") if $head ne "" and $citations->{$head}->[-1] ne "";
         $head = $key;
         $position = 0;
-        $citations->{$head} = [$head] unless exists $citations->{$head};
+        if(not exists $citations->{$head}){
+          $citations->{$head} = [$head];
+          push(@$order, $head);
+        }
       }
     }
   }
+  # remove "lid"
   foreach(keys %$citations){
     pop @{$citations->{$_}} if $citations->{$_}->[-1] eq "";
   }
   close($aux);
-  return ($bibinfo, $citations);
+  return ($bibinfo, $citations, $order);
 }
 
 sub generate_collapsed_entry{
