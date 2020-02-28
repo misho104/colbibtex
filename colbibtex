@@ -4,6 +4,8 @@ use strict;
 use warnings;
 use File::Temp qw/ tempfile /;
 
+our $DEBUG = 0;
+
 our $TARGET = $ARGV[0] || usage();
 $TARGET =~ s/\.aux$//i;
 colbibtex();
@@ -18,6 +20,15 @@ sub error {
 sub usage {
   print STDERR "$0 AUXFILE[.aux]\n";
   exit 1;
+}
+
+sub debug {
+  if ($DEBUG) {
+    foreach my $msg (@_){
+      chomp $msg;
+      print STDERR "$msg\n";
+    }
+  }
 }
 
 sub exec_bibtex{ # argument must have suffix ".aux".
@@ -74,21 +85,26 @@ sub colbibtex{
   }
 
   open(OUT, ">$TARGET.bbl");
-
+  debug("output: $TARGET.bbl");
   my $do_output = 1;
   foreach(@main_bbl){
     my $output_stack = "";
     if(/^\\bibitem{(.*?)}/){
       $key = $1;
       if(@{$citations->{$key}} > 1){ # collapsed entry in mcite style
+        debug("output: $key -> mcite collapse");
         print OUT $collapsed_entries->{$key};
         print OUT "\n";
         $do_output = 0;
       }elsif(exists $collapsed_entries->{$key}){ # collapsed entry in bib
+        debug("output: $key -> collapse");
         print OUT $_;
         print OUT $collapsed_entries->{$key};
         print OUT "\n";
         $do_output = 0;
+      }else{
+        $do_output = 1;
+        debug("output: $key");
       }
     }elsif(/^\\end{thebibliography}/){
       $do_output = 1;
